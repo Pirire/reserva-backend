@@ -9,7 +9,10 @@ const app = express();
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const reservasFile = path.join(__dirname, 'reservas.json');
 
-app.use(cors());
+app.use(cors({
+  origin: 'https://pirire.github.io'
+}));
+
 app.use(express.json());
 
 // Cria o arquivo reservas.json se não existir
