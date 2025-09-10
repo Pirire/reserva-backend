@@ -48,7 +48,7 @@ app.post('/', async (req, res) => {
     reservas.push({ valor, nome, partida, destino, data, pago: false });
     fs.writeFileSync(reservasFile, JSON.stringify(reservas, null, 2));
 
-    res.json({ url: session.url });
+  res.json({ url: session.url });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -56,4 +56,6 @@ app.post('/', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
