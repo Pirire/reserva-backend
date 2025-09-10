@@ -20,7 +20,7 @@ async function conectarMongo() {
 
 conectarMongo().catch(err => {
   console.error("Erro ao conectar ao MongoDB:", err);
-  process.exit(1); // encerra se não conectar
+  process.exit(1);
 });
 
 app.use(cors({
@@ -29,7 +29,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// Criar sessão de pagamento e salvar reserva
+// Criar sessão de pagamento e salvar reserva no MongoDB
 app.post('/', async (req, res) => {
   const { valor, nome, partida, destino, data } = req.body;
 
@@ -68,31 +68,6 @@ app.get("/ver-reservas", async (req, res) => {
     res.json(reservas);
   } catch (err) {
     res.status(500).json({ error: "Não foi possível consultar as reservas." });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL}?success=true`,
-      cancel_url: `${process.env.FRONTEND_URL}?canceled=true`,
-      metadata: { nome, partida, destino, data },
-    });
-
-    // Salva a reserva localmente
-    const reservas = JSON.parse(fs.readFileSync(reservasFile, 'utf8'));
-    reservas.push({ valor, nome, partida, destino, data, pago: false });
-    fs.writeFileSync(reservasFile, JSON.stringify(reservas, null, 2));
-
-  res.json({ url: session.url });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
   }
 });
 
