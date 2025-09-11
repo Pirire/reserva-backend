@@ -1,13 +1,16 @@
 {
-  "name": "reserva-backend",
+  "name": "reserva-viagem",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": { "start": "node index.js" },
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "mongodb": "^5.7.0",
-    "stripe": "^12.11.0"
+    "nodemailer": "^6.9.4",
+    "stripe": "^12.15.0"
   }
 }
