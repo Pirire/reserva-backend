@@ -1,36 +1,22 @@
 require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
-async function testarMongo() {
-  const client = new MongoClient(process.env.MONGODB_URI);
+const uri = process.env.MONGODB_URI;
+const client = new MongoClient(uri);
 
+async function testarMongo() {
   try {
     await client.connect();
-    console.log("✅ Conectado ao MongoDB!");
+    console.log('✅ Conectado ao MongoDB com sucesso!');
 
     const db = client.db(); // usa o banco definido na URI
-    const colecao = db.collection('reservas');
-
-    // Verifica se a coleção já existe
-    const collections = await db.listCollections({ name: 'reservas' }).toArray();
-    if (collections.length === 0) {
-      await db.createCollection('reservas');
-      console.log("📂 Coleção 'reservas' criada!");
-    } else {
-      console.log("📂 Coleção 'reservas' já existe.");
-    }
-
-    // Mostra os documentos atuais da coleção
-    const documentos = await colecao.find().toArray();
-    console.log("📄 Documentos atuais na coleção 'reservas':", documentos);
-
-  } catch (err) {
-    console.error("❌ Erro ao conectar ou acessar o MongoDB:", err);
-  } finally {
+    const colecoes = await db.listCollections().toArray();
+    console.log('Coleções existentes:', colecoes.map(c => c.name));
+    
     await client.close();
-    console.log("🔒 Conexão fechada.");
+  } catch (err) {
+    console.error('❌ Erro ao conectar ao MongoDB:', err);
   }
 }
 
 testarMongo();
-
