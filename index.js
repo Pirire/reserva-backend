@@ -60,17 +60,34 @@ app.get("/ver-reservas", async (req, res) => {
   }
 });
 
-// Função para conectar no MongoDB e iniciar o servidor
+// Rota de teste rápida para criar reserva
+app.get("/teste-criar", async (req, res) => {
+  try {
+    const novaReserva = {
+      nome: "Cliente Teste",
+      email: "teste@example.com",
+      data: new Date().toISOString(),
+    };
+
+    const resultado = await reservasCollection.insertOne(novaReserva);
+    res.json({ mensagem: "Reserva de teste criada!", id: resultado.insertedId });
+  } catch (err) {
+    console.error("Erro ao criar reserva de teste:", err);
+    res.status(500).json({ error: "Erro ao criar reserva de teste" });
+  }
+});
+
+// Conectar ao MongoDB e iniciar servidor
 async function startServer() {
   try {
     await client.connect();
     const db = client.db(); 
-    reservasCollection = db.collection('reservas');
+    reservasCollection = db.collection("reservas");
     console.log("✅ Conectado ao MongoDB!");
 
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
-      console.log(`Servidor rodando na porta ${PORT}`);
+      console.log(`🚀 Servidor rodando na porta ${PORT}`);
     });
   } catch (err) {
     console.error("❌ Falha ao conectar ao MongoDB:", err);
