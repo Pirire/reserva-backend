@@ -15,16 +15,16 @@ async function conectarMongo() {
   await client.connect();
   const db = client.db(); // usa o banco definido na URI
   reservasCollection = db.collection('reservas');
-  console.log("Conectado ao MongoDB!");
+  console.log("✅ Conectado ao MongoDB!");
 }
 
 conectarMongo().catch(err => {
-  console.error("Erro ao conectar ao MongoDB:", err);
-  process.exit(1);
+  console.error("❌ Erro ao conectar ao MongoDB:", err);
+  process.exit(1); // encerra se não conectar
 });
 
 app.use(cors({
-  origin: 'https://pirire.github.io' // seu frontend
+  origin: process.env.FRONTEND_URL // seu frontend
 }));
 
 app.use(express.json());
@@ -67,11 +67,12 @@ app.get("/ver-reservas", async (req, res) => {
     const reservas = await reservasCollection.find().toArray();
     res.json(reservas);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Não foi possível consultar as reservas." });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
