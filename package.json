@@ -1,11 +1,13 @@
 {
   "name": "reserva-backend",
   "version": "1.0.0",
-  "description": "Backend para reservas",
+  "description": "Backend para reservas com Stripe e MongoDB",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
+  "author": "Pirire",
+  "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
