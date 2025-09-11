@@ -7,34 +7,38 @@ const { MongoClient } = require('mongodb');
 const app = express();
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Conectar ao MongoDB
-const client = new MongoClient(process.env.MONGODB_URI);
 let reservasCollection;
 
+// Conectar ao MongoDB
 async function conectarMongo() {
-  await client.connect();
-  const db = client.db(); // usa o banco definido na URI
-  reservasCollection = db.collection('reservas');
-  console.log("✅ Conectado ao MongoDB!");
+  try {
+    const client = new MongoClient(process.env.MONGODB_URI);
+    await client.connect();
+    const db = client.db(); // O banco definido na URI será usado
+    reservasCollection = db.collection('reservas');
+    console.log("Conectado ao MongoDB!");
+  } catch (err) {
+    console.error("Erro ao conectar ao MongoDB:", err);
+    process.exit(1); // encerra o app se não conectar
+  }
 }
 
-conectarMongo().catch(err => {
-  console.error("❌ Erro ao conectar ao MongoDB:", err);
-  process.exit(1); // encerra se não conectar
-});
+conectarMongo();
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL // seu frontend
-}));
-
+// Middleware
+app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
 
 // Criar sessão de pagamento e salvar reserva no MongoDB
 app.post('/', async (req, res) => {
   const { valor, nome, partida, destino, data } = req.body;
 
+  if (!valor || !nome || !partida || !destino || !data) {
+    return res.status(400).json({ error: "Campos obrigatórios faltando." });
+  }
+
   try {
-    // Criar sessão de pagamento Stripe
+    // Criar sessão de pagamento no Stripe
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
@@ -51,7 +55,7 @@ app.post('/', async (req, res) => {
       metadata: { nome, partida, destino, data },
     });
 
-    // Salvar no MongoDB
+    // Salvar reserva no MongoDB
     await reservasCollection.insertOne({ valor, nome, partida, destino, data, pago: false });
 
     res.json({ url: session.url });
@@ -62,7 +66,7 @@ app.post('/', async (req, res) => {
 });
 
 // Rota para consultar reservas
-app.get("/ver-reservas", async (req, res) => {
+app.get('/ver-reservas', async (req, res) => {
   try {
     const reservas = await reservasCollection.find().toArray();
     res.json(reservas);
@@ -72,7 +76,8 @@ app.get("/ver-reservas", async (req, res) => {
   }
 });
 
+// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
