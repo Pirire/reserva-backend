@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const Stripe = require('stripe');
 const { MongoClient } = require('mongodb');
-const { v4: uuidv4 } = require('uuid');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -12,15 +12,30 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const client = new MongoClient(process.env.MONGODB_URI);
 let reservasCollection;
 
+// Configuração de CORS
 app.use(cors({
-  origin: 'https://pirire.github.io'
+  origin: 'https://pirire.github.io' // seu frontend
 }));
 app.use(express.json());
+
+// Configuração de e-mail (Gmail + senha de app)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER, // realmetropoli@gmail.com
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Função para gerar código de reserva
+function gerarCodigoReserva() {
+  return 'RES-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+}
 
 // Criar sessão de pagamento e salvar reserva no MongoDB
 app.post('/', async (req, res) => {
   const { valor, nome, partida, destino, data } = req.body;
-  const codigoReserva = uuidv4().split('-')[0]; // Código curto para reserva
+  const codigo = gerarCodigoReserva();
 
   try {
     // Criar sessão Stripe
@@ -37,61 +52,60 @@ app.post('/', async (req, res) => {
       mode: 'payment',
       success_url: `${process.env.FRONTEND_URL}?success=true`,
       cancel_url: `${process.env.FRONTEND_URL}?canceled=true`,
-      metadata: { nome, partida, destino, data, codigoReserva },
+      metadata: { nome, partida, destino, data, codigo },
     });
 
-    // Salvar reserva no MongoDB
-    await reservasCollection.insertOne({ valor, nome, partida, destino, data, pago: false, codigo: codigoReserva });
+    // Salvar no MongoDB
+    await reservasCollection.insertOne({
+      valor,
+      nome,
+      partida,
+      destino,
+      data,
+      codigo,
+      pago: false
+    });
 
-    res.json({ url: session.url, codigoReserva });
+    // Enviar notificação ao administrador
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: "realmetropoli@gmail.com",
+      subject: `🚖 Nova reserva criada (${codigo})`,
+      text: `Nova reserva recebida:\n\n👤 Nome: ${nome}\n📍 Partida: ${partida}\n🏁 Destino: ${destino}\n📅 Data: ${data}\n💶 Valor: ${valor}€\n🔑 Código: ${codigo}`
+    });
+
+    // Enviar confirmação ao cliente (se tiver email válido no campo "nome" ou se preferir adicionar um campo "email" separado)
+    if (req.body.email) {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: req.body.email,
+        subject: `✅ Confirmação da sua reserva (${codigo})`,
+        text: `Olá ${nome},\n\nA sua reserva foi criada com sucesso!\n\nDetalhes:\n📍 Partida: ${partida}\n🏁 Destino: ${destino}\n📅 Data: ${data}\n💶 Valor: ${valor}€\n\n🔑 Código da Reserva: ${codigo}\n\nGuarde este código caso queira cancelar.\n\nObrigado por escolher nossos serviços 🚖`
+      });
+    }
+
+    res.json({ url: session.url, codigoReserva: codigo });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Rota para consultar reservas
-app.get("/ver-reservas", async (req, res) => {
+// Cancelar reserva pelo código
+app.delete('/cancelar/:codigo', async (req, res) => {
   try {
-    const reservas = await reservasCollection.find().toArray();
-    res.json(reservas);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Não foi possível consultar as reservas." });
-  }
-});
-
-// Rota de teste rápida para criar reserva
-app.get("/teste-criar", async (req, res) => {
-  try {
-    const novaReserva = {
-      nome: "Cliente Teste",
-      email: "teste@example.com",
-      data: new Date().toISOString(),
-      codigo: uuidv4().split('-')[0]
-    };
-
-    const resultado = await reservasCollection.insertOne(novaReserva);
-    res.json({ mensagem: "Reserva de teste criada!", id: resultado.insertedId, codigo: novaReserva.codigo });
-  } catch (err) {
-    console.error("Erro ao criar reserva de teste:", err);
-    res.status(500).json({ error: "Erro ao criar reserva de teste" });
-  }
-});
-
-// Rota para cancelar reserva pelo código
-app.delete("/cancelar/:codigo", async (req, res) => {
-  const codigo = req.params.codigo;
-
-  try {
+    const { codigo } = req.params;
     const resultado = await reservasCollection.deleteOne({ codigo });
+
     if (resultado.deletedCount === 0) {
-      return res.status(404).json({ error: "Código de reserva não encontrado." });
+      return res.status(404).json({ error: "Reserva não encontrada." });
     }
-    res.json({ mensagem: "Reserva cancelada com sucesso!" });
+
+    res.json({ mensagem: `Reserva ${codigo} cancelada com sucesso.` });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erro ao tentar cancelar a reserva." });
+    res.status(500).json({ error: "Erro ao cancelar a reserva." });
   }
 });
 
