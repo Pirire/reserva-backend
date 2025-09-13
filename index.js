@@ -30,6 +30,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+<<<<<<< HEAD
 /**
  * Reserva SEM pagamento → só admin recebe
  */
@@ -185,6 +186,31 @@ app.get("/ver-reservas", async (req, res) => {
     res.status(500).json({ error: "Não foi possível consultar as reservas." });
   }
 });
+=======
+// =====================
+// Rota de teste de e-mail
+// =====================
+app.get("/teste-email", async (req, res) => {
+  try {
+    await transporter.sendMail({
+      from: `"Reservas Viagem" <${process.env.SMTP_USER}>`,
+      to: process.env.ADMIN_EMAIL,
+      subject: "Teste de envio de e-mail",
+      text: "E-mail de teste enviado com sucesso!"
+    });
+    res.send("E-mail de teste enviado com sucesso!");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Falha ao enviar e-mail: " + err.message);
+  }
+});
+
+// =====================
+// Outras rotas do seu app
+// =====================
+
+// (Aqui você pode manter todas as outras rotas: /reservar-email, /webhook, /ver-reservas etc.)
+>>>>>>> 117cbf1 (Commit inicial do projeto reserva-backend)
 
 // Conectar ao MongoDB e iniciar servidor
 async function startServer() {
@@ -194,7 +220,11 @@ async function startServer() {
     reservasCollection = db.collection("reservas");
     console.log("✅ Conectado ao MongoDB!");
 
+<<<<<<< HEAD
     const PORT = process.env.PORT || 3000;
+=======
+    const PORT = process.env.PORT || 4000; // alterei para 4000
+>>>>>>> 117cbf1 (Commit inicial do projeto reserva-backend)
     app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
   } catch (err) {
     console.error("❌ Falha ao conectar ao MongoDB:", err);
