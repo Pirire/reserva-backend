@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teste Reserva Backend</title>
+</head>
+<body>
+  <h1>Teste Reserva Backend</h1>
+
+  <button onclick="testeEmail()">Testar Envio de E-mail</button>
+
+  <form id="reservaForm">
+    <h2>Criar Reserva</h2>
+    <label>Nome: <input type="text" id="nome" required></label><br>
+    <label>Email: <input type="email" id="email" required></label><br>
+    <label>Partida: <input type="text" id="partida" required></label><br>
+    <label>Destino: <input type="text" id="destino" required></label><br>
+    <label>Data: <input type="date" id="data" required></label><br>
+    <label>Valor: <input type="number" id="valor" required></label><br>
+    <label>Código: <input type="text" id="codigo" required></label><br>
+    <button type="submit">Enviar Reserva</button>
+  </form>
+
+  <div id="resultado"></div>
+
+  <script>
+    const backendURL = "http://localhost:4000"; // porta do seu servidor
+
+    function testeEmail() {
+      fetch(`${backendURL}/teste-email`)
+        .then(res => res.text())
+        .then(msg => document.getElementById("resultado").innerText = msg)
+        .catch(err => console.error(err));
+    }
+
+    document.getElementById("reservaForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const data = {
+        nome: document.getElementById("nome").value,
+        email: document.getElementById("email").value,
+        partida: document.getElementById("partida").value,
+        destino: document.getElementById("destino").value,
+        data: document.getElementById("data").value,
+        valor: parseFloat(document.getElementById("valor").value),
+        codigo: document.getElementById("codigo").value
+      };
+
+      fetch(`${backendURL}/reservar-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(msg => document.getElementById("resultado").innerText = JSON.stringify(msg))
+      .catch(err => console.error(err));
+    });
+  </script>
+</body>
+</html>

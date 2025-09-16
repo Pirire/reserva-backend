@@ -1,235 +1,126 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const Stripe = require('stripe');
-const { MongoClient } = require('mongodb');
-const nodemailer = require('nodemailer');
-const bodyParser = require('body-parser');
+// ================================
+// index.js - Servidor de Reservas
+// ================================
+
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const { MongoClient } = require("mongodb");
+const nodemailer = require("nodemailer");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-
-// MongoDB
-const client = new MongoClient(process.env.MONGODB_URI);
-let reservasCollection;
-
-app.use(cors({ origin: '*' }));
+app.use(cors());
 app.use(express.json());
 
-// Para o webhook do Stripe (precisa do raw body)
-app.use("/webhook", bodyParser.raw({ type: "application/json" }));
+// ================================
+// Conexão com o MongoDB
+// ================================
+const client = new MongoClient(process.env.MONGO_URI);
+let reservasCollection;
 
-// Nodemailer
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+async function connectDB() {
+  try {
+    await client.connect();
+    const db = client.db("reservaDB");
+    reservasCollection = db.collection("reservas");
+    console.log("✅ Conectado ao MongoDB!");
+  } catch (err) {
+    console.error("❌ Erro ao conectar ao MongoDB:", err);
+  }
+}
+connectDB();
+
+// ================================
+// Rota de reserva (salva no MongoDB)
+// ================================
+app.post("/reservar", async (req, res) => {
+  try {
+    const reserva = req.body;
+    await reservasCollection.insertOne(reserva);
+    res.status(200).json({ message: "Reserva salva com sucesso!" });
+  } catch (err) {
+    res.status(500).json({ error: "Erro ao salvar reserva" });
   }
 });
 
-<<<<<<< HEAD
-/**
- * Reserva SEM pagamento → só admin recebe
- */
+// ================================
+// Rota de envio de e-mail (Nodemailer)
+// ================================
 app.post("/reservar-email", async (req, res) => {
-  const { valor, nome, email, partida, destino, data, codigo } = req.body;
-
   try {
-    await reservasCollection.insertOne({ valor, nome, email, partida, destino, data, codigo, pago: false });
+    const { nome, email, partida, destino, data, codigo } = req.body;
 
-    await transporter.sendMail({
-      from: `"Reservas Viagem" <${process.env.SMTP_USER}>`,
-      to: process.env.ADMIN_EMAIL, // só admin
-      subject: "Nova Reserva (sem pagamento)",
-      html: `
-        <h2>Nova Reserva Recebida</h2>
-        <p><strong>Nome:</strong> ${nome}</p>
-        <p><strong>Email informado:</strong> ${email}</p>
-        <p><strong>Partida:</strong> ${partida}</p>
-        <p><strong>Destino:</strong> ${destino}</p>
-        <p><strong>Data:</strong> ${data}</p>
-        <p><strong>Valor estimado:</strong> ${valor} €</p>
-        <p><strong>Código:</strong> ${codigo}</p>
-      `
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     });
 
-    res.json({ mensagem: "Reserva registada (sem pagamento). Admin notificado." });
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Confirmação da Reserva",
+      text: `Olá ${nome}, sua reserva de ${partida} para ${destino} em ${data} foi confirmada! Código: ${codigo}`,
+    });
+
+    res.status(200).json({ message: "E-mail enviado com sucesso!" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao criar reserva sem pagamento" });
+    res.status(500).json({ error: "Erro ao enviar e-mail" });
   }
 });
 
-/**
- * Reserva COM pagamento → cria sessão Stripe
- */
-app.post("/", async (req, res) => {
-  const { valor, nome, email, partida, destino, data, codigo } = req.body;
-
+// ================================
+// Rota de pagamento (Stripe Checkout)
+// ================================
+app.post("/checkout", async (req, res) => {
   try {
+    const { valor, nome, email } = req.body;
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items: [{
-        price_data: {
-          currency: "eur",
-          product_data: { name: `Viagem de ${partida} até ${destino}` },
-          unit_amount: Math.round(parseFloat(valor) * 100),
-        },
-        quantity: 1,
-      }],
       mode: "payment",
-      success_url: `${process.env.FRONTEND_URL}?success=true`,
-      cancel_url: `${process.env.FRONTEND_URL}?canceled=true`,
-      metadata: { nome, email, partida, destino, data, codigo },
-      customer_email: email
-    });
-
-    await reservasCollection.insertOne({ valor, nome, email, partida, destino, data, codigo, pago: false });
-
-    // Notificação inicial apenas para admin
-    await transporter.sendMail({
-      from: `"Reservas Viagem" <${process.env.SMTP_USER}>`,
-      to: process.env.ADMIN_EMAIL,
-      subject: "Nova Reserva Criada (aguarda pagamento)",
-      text: `Reserva criada. Aguardando pagamento.\n\nNome: ${nome}\nPartida: ${partida}\nDestino: ${destino}\nData: ${data}\nValor: ${valor} €\nCódigo: ${codigo}`
+      customer_email: email,
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `Reserva de viagem - ${nome}`,
+            },
+            unit_amount: valor * 100, // Stripe trabalha em centavos
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: "http://localhost:4000/sucesso",
+      cancel_url: "http://localhost:4000/cancelado",
     });
 
     res.json({ url: session.url });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Erro ao criar checkout" });
   }
 });
 
-/**
- * Webhook Stripe → confirma pagamento e envia emails (admin + cliente)
- */
-app.post("/webhook", async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  let event;
-
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error("❌ Erro no webhook:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const { nome, email, partida, destino, data, codigo } = session.metadata;
-    const valor = (session.amount_total / 100).toFixed(2);
-
-    // Atualizar no MongoDB
-    await reservasCollection.updateOne({ codigo }, { $set: { pago: true } });
-
-    const conteudo = `
-      <h2>Reserva Confirmada e Paga</h2>
-      <p><strong>Nome:</strong> ${nome}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Partida:</strong> ${partida}</p>
-      <p><strong>Destino:</strong> ${destino}</p>
-      <p><strong>Data:</strong> ${data}</p>
-      <p><strong>Valor pago:</strong> ${valor} €</p>
-      <p><strong>Código:</strong> ${codigo}</p>
-    `;
-
-    // Email para cliente
-    await transporter.sendMail({
-      from: `"Reservas Viagem" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: "Pagamento Confirmado - Sua Reserva",
-      html: conteudo
-    });
-
-    // Email para admin
-    await transporter.sendMail({
-      from: `"Reservas Viagem" <${process.env.SMTP_USER}>`,
-      to: process.env.ADMIN_EMAIL,
-      subject: `Reserva Paga - ${nome}`,
-      html: conteudo
-    });
-
-    console.log("✅ E-mails enviados após pagamento confirmado.");
-  }
-
-  res.json({ received: true });
-});
-
-/**
- * Cancelar reserva
- */
-app.delete("/cancelar/:codigo", async (req, res) => {
-  const { codigo } = req.params;
-  try {
-    const resultado = await reservasCollection.deleteOne({ codigo });
-    if (resultado.deletedCount === 0) return res.status(404).json({ error: "Reserva não encontrada" });
-    res.json({ mensagem: "Reserva cancelada com sucesso" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao tentar cancelar a reserva" });
-  }
-});
-
-/**
- * Consultar reservas
- */
+// ================================
+// Rota para visualizar reservas
+// ================================
 app.get("/ver-reservas", async (req, res) => {
   try {
     const reservas = await reservasCollection.find().toArray();
-    res.json(reservas);
+    res.status(200).json(reservas);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Não foi possível consultar as reservas." });
-  }
-});
-=======
-// =====================
-// Rota de teste de e-mail
-// =====================
-app.get("/teste-email", async (req, res) => {
-  try {
-    await transporter.sendMail({
-      from: `"Reservas Viagem" <${process.env.SMTP_USER}>`,
-      to: process.env.ADMIN_EMAIL,
-      subject: "Teste de envio de e-mail",
-      text: "E-mail de teste enviado com sucesso!"
-    });
-    res.send("E-mail de teste enviado com sucesso!");
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Falha ao enviar e-mail: " + err.message);
+    res.status(500).json({ error: "Erro ao buscar reservas" });
   }
 });
 
-// =====================
-// Outras rotas do seu app
-// =====================
-
-// (Aqui você pode manter todas as outras rotas: /reservar-email, /webhook, /ver-reservas etc.)
->>>>>>> 117cbf1 (Commit inicial do projeto reserva-backend)
-
-// Conectar ao MongoDB e iniciar servidor
-async function startServer() {
-  try {
-    await client.connect();
-    const db = client.db();
-    reservasCollection = db.collection("reservas");
-    console.log("✅ Conectado ao MongoDB!");
-
-<<<<<<< HEAD
-    const PORT = process.env.PORT || 3000;
-=======
-    const PORT = process.env.PORT || 4000; // alterei para 4000
->>>>>>> 117cbf1 (Commit inicial do projeto reserva-backend)
-    app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
-  } catch (err) {
-    console.error("❌ Falha ao conectar ao MongoDB:", err);
-    process.exit(1);
-  }
-}
-
-startServer();
+// ================================
+// Inicializa o servidor
+// ================================
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+});
