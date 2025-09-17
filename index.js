@@ -16,7 +16,7 @@ app.use(express.json());
 // ================================
 // Conexão com o MongoDB
 // ================================
-const client = new MongoClient(process.env.MONGO_URI);
+const client = new MongoClient(process.env.MONGODB_URI);
 let reservasCollection;
 
 async function connectDB() {
