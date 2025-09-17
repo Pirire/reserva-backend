@@ -6,17 +6,9 @@
   "scripts": {
     "start": "node index.js"
   },
-<<<<<<< HEAD
   "keywords": [],
   "author": "Pirire",
   "license": "MIT",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "nodemailer": "^6.9.13",
-    "stripe": "^14.20.0"
-=======
   "dependencies": {
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
@@ -25,6 +17,5 @@
     "mongodb": "^5.9.2",
     "nodemailer": "^6.10.1",
     "stripe": "^14.25.0"
->>>>>>> 117cbf1 (Commit inicial do projeto reserva-backend)
   }
 }
