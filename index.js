@@ -22,10 +22,10 @@ let reservasCollection;
 async function connectDB() {
   try {
     await client.connect();
-    reservasCollection = client.db("reservaDB").collection("reservas");
+    reservasCollection = client.db("reservasDB").collection("reservas");
     console.log("✅ Conectado ao MongoDB!");
   } catch (err) {
-    console.error("❌ Erro ao conectar ao MongoDB:", err);
+    console.error("❌ Erro ao conectar ao MongoDB:", err.message);
   }
 }
 connectDB();
@@ -44,13 +44,15 @@ const transporter = nodemailer.createTransport({
 });
 
 // ================================
-// Rotas
+// Endpoint: criar reserva + enviar e-mail
 // ================================
-
-// Rota de reserva + envio de email
 app.post("/reserva", async (req, res) => {
   try {
     const { nome, email, partida, destino, data } = req.body;
+
+    if (!nome || !email || !partida || !destino || !data) {
+      return res.status(400).json({ error: "Campos obrigatórios faltando" });
+    }
 
     const reserva = { nome, email, partida, destino, data, createdAt: new Date() };
     await reservasCollection.insertOne(reserva);
@@ -64,15 +66,21 @@ app.post("/reserva", async (req, res) => {
 
     res.status(200).json({ message: "Reserva confirmada e e-mail enviado!" });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao processar reserva" });
+    console.error("❌ Erro ao processar reserva:", err);
+    res.status(500).json({ error: "Erro ao processar reserva", detalhes: err.message });
   }
 });
 
-
-// Rota de checkout Stripe
+// ================================
+// Endpoint: checkout Stripe
+// ================================
 app.post("/checkout", async (req, res) => {
   try {
     const { valor, nome, email } = req.body;
+
+    if (!valor || !nome || !email) {
+      return res.status(400).json({ error: "Campos obrigatórios faltando para checkout" });
+    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -94,28 +102,33 @@ app.post("/checkout", async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao criar checkout" });
+    console.error("❌ Erro ao criar checkout:", err);
+    res.status(500).json({ error: "Erro ao criar checkout", detalhes: err.message });
   }
 });
 
-// Rota para visualizar reservas
+// ================================
+// Endpoint: visualizar reservas
+// ================================
 app.get("/ver-reservas", async (req, res) => {
   try {
     const reservas = await reservasCollection.find().toArray();
     res.status(200).json(reservas);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Erro ao buscar reservas" });
+    console.error("❌ Erro ao buscar reservas:", err);
+    res.status(500).json({ error: "Erro ao buscar reservas", detalhes: err.message });
   }
 });
 
-// Rota de teste de conexão com MongoDB
+// ================================
+// Endpoint: teste conexão MongoDB
+// ================================
 app.get("/teste-mongo", async (req, res) => {
   try {
     const count = await reservasCollection.countDocuments();
     res.status(200).json({ message: `Conexão OK! ${count} reservas encontradas.` });
   } catch (err) {
+    console.error("❌ Erro na conexão com o MongoDB:", err);
     res.status(500).json({ error: "Erro na conexão com o MongoDB", detalhes: err.message });
   }
 });
