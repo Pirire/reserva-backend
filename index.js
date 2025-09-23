@@ -16,12 +16,7 @@ app.use(express.json());
 // ================================
 // Conexão com o MongoDB
 // ================================
-const mongoURI = process.env.MONGODB_URI || "mongodb+srv://realmetropoli_db_user:985699Silsa@cluster0.jzjfit8.mongodb.net/reservasDB?retryWrites=true&w=majority";
-
-// DEBUG: mostrar no log qual URI está sendo usada
-console.log("MONGODB_URI =", mongoURI);
-
-const client = new MongoClient(mongoURI);
+const client = new MongoClient(process.env.MONGODB_URI);
 let reservasCollection;
 
 async function connectDB() {
@@ -69,10 +64,10 @@ app.post("/reserva", async (req, res) => {
 
     res.status(200).json({ message: "Reserva confirmada e e-mail enviado!" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: "Erro ao processar reserva" });
   }
 });
+
 
 // Rota de checkout Stripe
 app.post("/checkout", async (req, res) => {
