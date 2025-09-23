@@ -16,6 +16,8 @@ app.use(express.json());
 // ================================
 // Conexão com o MongoDB
 // ================================
+console.log("Mongo URI:", process.env.MONGODB_URI); // <-- Debug para verificar a URI
+
 const client = new MongoClient(process.env.MONGODB_URI);
 let reservasCollection;
 
@@ -35,7 +37,7 @@ connectDB();
 // ================================
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
+  port: process.env.SMTP_PORT || 587,
   secure: false,
   auth: {
     user: process.env.EMAIL_USER,
