@@ -17,10 +17,6 @@ app.use(express.json());
 // Conexão com o MongoDB
 // ================================
 const mongoURI = process.env.MONGODB_URI || "mongodb+srv://realmetropoli_db_user:985699Silsa@cluster0.jzjfit8.mongodb.net/reservasDB?retryWrites=true&w=majority";
-
-// DEBUG: mostrar no log qual URI está sendo usada
-console.log("MONGODB_URI =", mongoURI);
-
 const client = new MongoClient(mongoURI);
 let reservasCollection;
 
