@@ -1,17 +1,4 @@
-// ================================
-// index.js - Servidor de Reservas
-// ================================
-
 require("dotenv").config();
-
-// DEBUG: verificar se o MongoDB URI está chegando
-if (!process.env.MONGODB_URI) {
-  console.error("❌ ERRO: a variável de ambiente MONGODB_URI não está definida!");
-  process.exit(1); // para o servidor para evitar conexões inválidas
-} else {
-  console.log("Mongo URI encontrada ✔");
-}
-
 const express = require("express");
 const cors = require("cors");
 const { MongoClient } = require("mongodb");
@@ -23,25 +10,25 @@ app.use(cors());
 app.use(express.json());
 
 // ================================
-// Conexão com o MongoDB
+// MongoDB
 // ================================
 const client = new MongoClient(process.env.MONGODB_URI);
-let reservasCollection;
+let reservasCollection, motoristasCollection;
 
 async function connectDB() {
   try {
     await client.connect();
     reservasCollection = client.db("reservasDB").collection("reservas");
+    motoristasCollection = client.db("reservasDB").collection("motoristas");
     console.log("✅ Conectado ao MongoDB!");
   } catch (err) {
     console.error("❌ Erro ao conectar ao MongoDB:", err.message);
-    process.exit(1); // encerra o servidor se falhar
   }
 }
 connectDB();
 
 // ================================
-// Configuração do Nodemailer
+// Nodemailer
 // ================================
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -54,15 +41,13 @@ const transporter = nodemailer.createTransport({
 });
 
 // ================================
-// Endpoint: criar reserva + enviar e-mail
+// Endpoints: Reservas
 // ================================
 app.post("/reserva", async (req, res) => {
   try {
     const { nome, email, partida, destino, data } = req.body;
-
-    if (!nome || !email || !partida || !destino || !data) {
+    if (!nome || !email || !partida || !destino || !data)
       return res.status(400).json({ error: "Campos obrigatórios faltando" });
-    }
 
     const reserva = { nome, email, partida, destino, data, createdAt: new Date() };
     await reservasCollection.insertOne(reserva);
@@ -81,45 +66,6 @@ app.post("/reserva", async (req, res) => {
   }
 });
 
-// ================================
-// Endpoint: checkout Stripe
-// ================================
-app.post("/checkout", async (req, res) => {
-  try {
-    const { valor, nome, email } = req.body;
-
-    if (!valor || !nome || !email) {
-      return res.status(400).json({ error: "Campos obrigatórios faltando para checkout" });
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      customer_email: email,
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: { name: `Reserva de viagem - ${nome}` },
-            unit_amount: valor * 100,
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: process.env.SUCCESS_URL || "http://localhost:4000/sucesso",
-      cancel_url: process.env.CANCEL_URL || "http://localhost:4000/cancelado",
-    });
-
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error("❌ Erro ao criar checkout:", err);
-    res.status(500).json({ error: "Erro ao criar checkout", detalhes: err.message });
-  }
-});
-
-// ================================
-// Endpoint: visualizar reservas
-// ================================
 app.get("/ver-reservas", async (req, res) => {
   try {
     const reservas = await reservasCollection.find().toArray();
@@ -131,15 +77,38 @@ app.get("/ver-reservas", async (req, res) => {
 });
 
 // ================================
-// Endpoint: teste conexão MongoDB
+// Endpoints: Motoristas
 // ================================
-app.get("/teste-mongo", async (req, res) => {
+app.post("/motorista", async (req, res) => {
   try {
-    const count = await reservasCollection.countDocuments();
-    res.status(200).json({ message: `Conexão OK! ${count} reservas encontradas.` });
+    const { nome, email, telefone, cnh, veiculo, disponibilidade } = req.body;
+    if (!nome || !email || !telefone || !cnh || !veiculo || !disponibilidade)
+      return res.status(400).json({ error: "Campos obrigatórios faltando" });
+
+    const motorista = { nome, email, telefone, cnh, veiculo, disponibilidade, createdAt: new Date() };
+    await motoristasCollection.insertOne(motorista);
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Cadastro de Motorista",
+      text: `Olá ${nome}, seu cadastro como motorista foi realizado com sucesso!`,
+    });
+
+    res.status(200).json({ message: "Motorista registrado e e-mail enviado!" });
   } catch (err) {
-    console.error("❌ Erro na conexão com o MongoDB:", err);
-    res.status(500).json({ error: "Erro na conexão com o MongoDB", detalhes: err.message });
+    console.error("❌ Erro ao registrar motorista:", err);
+    res.status(500).json({ error: "Erro ao registrar motorista", detalhes: err.message });
+  }
+});
+
+app.get("/ver-motoristas", async (req, res) => {
+  try {
+    const motoristas = await motoristasCollection.find().toArray();
+    res.status(200).json(motoristas);
+  } catch (err) {
+    console.error("❌ Erro ao buscar motoristas:", err);
+    res.status(500).json({ error: "Erro ao buscar motoristas", detalhes: err.message });
   }
 });
 
