@@ -5,7 +5,12 @@
 require("dotenv").config();
 
 // DEBUG: verificar se o MongoDB URI está chegando
-console.log("Mongo URI:", process.env.MONGODB_URI);
+if (!process.env.MONGODB_URI) {
+  console.error("❌ ERRO: a variável de ambiente MONGODB_URI não está definida!");
+  process.exit(1); // para o servidor para evitar conexões inválidas
+} else {
+  console.log("Mongo URI encontrada ✔");
+}
 
 const express = require("express");
 const cors = require("cors");
@@ -30,6 +35,7 @@ async function connectDB() {
     console.log("✅ Conectado ao MongoDB!");
   } catch (err) {
     console.error("❌ Erro ao conectar ao MongoDB:", err.message);
+    process.exit(1); // encerra o servidor se falhar
   }
 }
 connectDB();
