@@ -5,6 +5,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const { MongoClient } = require("mongodb");
 const nodemailer = require("nodemailer");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
@@ -13,8 +14,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve arquivos estáticos da pasta public
-app.use(express.static('public'));
+// ================================
+// Servir arquivos estáticos da pasta 'public'
+// ================================
+app.use(express.static(path.join(__dirname, "public")));
 
 // ================================
 // Conexão com o MongoDB
@@ -22,9 +25,9 @@ app.use(express.static('public'));
 if (!process.env.MONGODB_URI) {
   console.error("❌ ERRO: a variável de ambiente MONGODB_URI não está definida!");
   process.exit(1);
+} else {
+  console.log("Mongo URI encontrada ✔");
 }
-
-console.log("Mongo URI encontrada ✔");
 
 const client = new MongoClient(process.env.MONGODB_URI);
 let reservasCollection;
@@ -36,7 +39,6 @@ async function connectDB() {
     console.log("✅ Conectado ao MongoDB!");
   } catch (err) {
     console.error("❌ Erro ao conectar ao MongoDB:", err.message);
-    process.exit(1);
   }
 }
 connectDB();
