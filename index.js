@@ -13,6 +13,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Serve arquivos estáticos da pasta public
+app.use(express.static('public'));
+
 // ================================
 // Conexão com o MongoDB
 // ================================
@@ -25,16 +28,15 @@ console.log("Mongo URI encontrada ✔");
 
 const client = new MongoClient(process.env.MONGODB_URI);
 let reservasCollection;
-let motoristasCollection;
 
 async function connectDB() {
   try {
     await client.connect();
     reservasCollection = client.db("reservasDB").collection("reservas");
-    motoristasCollection = client.db("reservasDB").collection("motoristas");
     console.log("✅ Conectado ao MongoDB!");
   } catch (err) {
     console.error("❌ Erro ao conectar ao MongoDB:", err.message);
+    process.exit(1);
   }
 }
 connectDB();
@@ -139,50 +141,6 @@ app.get("/teste-mongo", async (req, res) => {
   } catch (err) {
     console.error("❌ Erro na conexão com o MongoDB:", err);
     res.status(500).json({ error: "Erro na conexão com o MongoDB", detalhes: err.message });
-  }
-});
-
-// ================================
-// Endpoint: registrar motorista
-// ================================
-app.post("/motorista", async (req, res) => {
-  try {
-    const { nome, email, telefone, veiculo, placa } = req.body;
-    if (!nome || !email || !telefone || !veiculo || !placa) {
-      return res.status(400).json({ error: "Campos obrigatórios faltando" });
-    }
-
-    const motorista = { nome, email, telefone, veiculo, placa, createdAt: new Date() };
-    await motoristasCollection.insertOne(motorista);
-
-    res.status(200).json({ message: "Motorista registrado com sucesso!" });
-  } catch (err) {
-    console.error("❌ Erro ao registrar motorista:", err);
-    res.status(500).json({ error: "Erro ao registrar motorista", detalhes: err.message });
-  }
-});
-
-// ================================
-// Endpoint: formulário de contato
-// ================================
-app.post("/contato", async (req, res) => {
-  try {
-    const { email, mensagem } = req.body;
-    if (!email || !mensagem) {
-      return res.status(400).json({ error: "Campos obrigatórios faltando" });
-    }
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      subject: "Nova mensagem de contato",
-      text: `Email do remetente: ${email}\nMensagem:\n${mensagem}`
-    });
-
-    res.status(200).json({ message: "Enviado com sucesso!" });
-  } catch (err) {
-    console.error("Erro ao enviar contato:", err);
-    res.status(500).json({ error: "Erro ao enviar contato", detalhes: err.message });
   }
 });
 
